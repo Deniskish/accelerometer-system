@@ -1,7 +1,9 @@
+#include "../common/accel_packet.h"
 #include "../common/socket_utils.h"
 
 #include <iostream>
 #include <stdexcept>
+#include <string>
 
 int main(int argc, char* argv[]) {
     try {
@@ -24,6 +26,15 @@ int main(int argc, char* argv[]) {
             std::string message = readLine(socketFd);
 
             std::cout << "Received from server: " << message << std::endl;
+
+            AccelPacket packet = parseAccelPacket(message);
+            AccelModule module = calculateModule(packet);
+
+            std::string response = accelModuleToJson(module);
+
+            sendLine(socketFd, response);
+
+            std::cout << "Sent module: " << response << std::endl;
         }
 
         closeSocket(socketFd);

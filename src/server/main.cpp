@@ -1,7 +1,26 @@
+#include "../common/accel_packet.h"
 #include "../common/socket_utils.h"
 
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
+#include <string>
+
+int roundToThousand(double value) {
+    return static_cast<int>(std::round(value * 1000.0));
+}
+
+bool isDuplicatePacket(const AccelPacket& currentPacket,
+                       const AccelPacket& previousPacket,
+                       bool hasPreviousPacket) {
+    if (!hasPreviousPacket) {
+        return false;
+    }
+
+    return roundToThousand(currentPacket.x) == roundToThousand(previousPacket.x) &&
+           roundToThousand(currentPacket.y) == roundToThousand(previousPacket.y) &&
+           roundToThousand(currentPacket.z) == roundToThousand(previousPacket.z);
+}
 
 int main(int argc, char* argv[]) {
     try {
@@ -26,14 +45,35 @@ int main(int argc, char* argv[]) {
         int nodeBSocket = acceptClient(serverSocketB);
         std::cout << "Node B connected" << std::endl;
 
+        AccelPacket previousPacket{};
+        bool hasPreviousPacket = false;
+
         while (true) {
             std::string messageFromA = readLine(nodeASocket);
 
             std::cout << "Received from Node A: " << messageFromA << std::endl;
 
+            AccelPacket currentPacket = parseAccelPacket(messageFromA);
+
+            if (isDuplicatePacket(currentPacket, previousPacket, hasPreviousPacket)) {
+                std::cout << "Duplicate packet skipped" << std::endl;
+                continue;
+            }
+
+            previousPacket = currentPacket;
+            hasPreviousPacket = true;
+
             sendLine(nodeBSocket, messageFromA);
 
-            std::cout << "Forwarded to Node B" << std::endl;
+            std::cout << "Forwarded packet to Node B" << std::endl;
+
+            std::string moduleFromB = readLine(nodeBSocket);
+
+            std::cout << "Received from Node B: " << moduleFromB << std::endl;
+
+            sendLine(nodeASocket, moduleFromB);
+
+            std::cout << "Forwarded module to Node A" << std::endl;
         }
 
         closeSocket(nodeASocket);
